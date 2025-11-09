@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  tpbank-api:
+    image: phamquangvinh/tpbank-api:latest
+    container_name: tpbank-api-production
+    restart: unless-stopped
+    ports:
+      - "8089:8089"
+    environment:
+      # Server Configuration
+      SERVER_PORT: "8089"
+      SERVER_MODE: "release" # debug, release
+      SERVER_READ_TIMEOUT: "10s"
+      SERVER_WRITE_TIMEOUT: "10s"
+
+      # TPBank Configuration - THAY ĐỔI THÔNG TIN CỦA BẠN
+      TPBANK_BASE_URL: "https://ebank.tpb.vn/gateway/api"
+      TPBANK_USERNAME: "your_phone_number_bank"              # Số điện thoại đăng nhập TPBank
+      TPBANK_PASSWORD: "your_password_here"      # Mật khẩu đăng nhập TPBank
+      TPBANK_DEVICE_ID: "your_device_id_here"    # Device ID từ localStorage.deviceId
+      TPBANK_ACCOUNT_NUMBER: "your_account_number_bank_here"       # Số tài khoản cần lấy giao dịch
+      TPBANK_APP_VERSION: "2025.10.17"
+      TPBANK_PLATFORM: "WEB"
+
+      # CronJob Configuration
+      CRONJOB_ENABLED: "true"
+      CRONJOB_SCHEDULE: "0 */5 * * * *"         # Chạy mỗi 5 phút
+      CRONJOB_FETCH_DAYS: "7"                   # Lấy giao dịch 7 ngày gần nhất
+      CRONJOB_MAX_RETRIES: "3"
+      CRONJOB_RETRY_DELAY: "5s"
+      CRONJOB_TIMEOUT_PER_REQUEST: "30s"
+
+      # Logger Configuration
+      LOGGER_LEVEL: "info"                      # debug, info, warn, error
+      LOGGER_OUTPUT_PATH: "/logs/app.log"
+      LOGGER_ERROR_PATH: "/logs/error.log"
+      LOGGER_ENCODING: "json"                   # json, console
+
+      # Webhook Configuration - THAY ĐỔI URL WEBHOOK CỦA BẠN
+      WEBHOOK_ENABLED: "true"
+      WEBHOOK_URL: "https://your-webhook-url.com/transactions"  # URL nhận thông báo giao dịch
+      WEBHOOK_METHOD: "POST"
+      WEBHOOK_TIMEOUT: "30s"
+      WEBHOOK_RETRY_COUNT: "3"
+      WEBHOOK_RETRY_DELAY: "2s"
+      WEBHOOK_HEADER_CONTENT_TYPE: "application/json"
+      WEBHOOK_HEADER_X_API_KEY: "your-secret-key"               # API key của webhook server
+
+      # Timezone
+      TZ: "Asia/Ho_Chi_Minh"
+
+    volumes:
+      # Mount logs directory
+      - ./logs:/logs
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+    # Network
+    networks:
+      - tpbank-network
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  tpbank-network:
+    driver: bridge
