@@ -14,12 +14,14 @@ API này cung cấp dịch vụ **tự động đồng bộ giao dịch từ TPB
 ## ✨ Tính năng
 
 - ✅ **Tự động đồng bộ** giao dịch theo lịch (cron job)
-- ✅ **Gửi webhook** khi có giao dịch mới
+- ✅ **Gửi webhook** với filter tùy chọn (nhận tiền, chuyển đi, hoặc cả 2)
+- ✅ **Transaction Filters** - Lọc giao dịch theo loại category
 - ✅ **API REST** để truy vấn giao dịch thủ công
 - ✅ **Swagger UI** cho documentation
-- ✅ **Docker** ready - chạy với 1 lệnh
+- ✅ **Docker** ready - chạy với 1 lệnh (~15MB)
 - ✅ **Retry logic** thông minh khi gặp lỗi
 - ✅ **Logs** chi tiết để debug
+- 🛡️ **Account Protection** - Tự động stop sau 2 lần login thất bại để tránh bị khóa tài khoản
 
 ## 🚀 Cài đặt nhanh với Docker
 
@@ -60,6 +62,7 @@ environment:
   
   # Webhook nhận thông báo giao dịch
   WEBHOOK_URL: "https://your-webhook-url.com/transactions"
+  WEBHOOK_FILTER_TYPE: "all"  # all, money_in, transfer_out, both, custom
   WEBHOOK_HEADER_X_API_KEY: "your-secret-key"
 ```
 
@@ -101,6 +104,43 @@ Content-Type: application/json
 
 {
   "days": 7
+}
+```
+
+### Lấy giao dịch nhận tiền (Money In)
+```bash
+POST /api/v1/transactions/money-in
+Content-Type: application/json
+
+{
+  "from_date": "20250101",
+  "to_date": "20250109"
+}
+```
+
+### Lấy giao dịch chuyển tiền đi (Transfer Out)
+```bash
+POST /api/v1/transactions/transfer-out
+Content-Type: application/json
+
+{
+  "from_date": "20250101",
+  "to_date": "20250109"
+}
+```
+
+### Lấy giao dịch theo category tùy chọn
+```bash
+POST /api/v1/transactions/by-category
+Content-Type: application/json
+
+{
+  "from_date": "20250101",
+  "to_date": "20250109",
+  "categories": [
+    "transaction_CategoryMoneyIn",
+    "transaction_CategoryTransfer"
+  ]
 }
 ```
 
@@ -147,24 +187,68 @@ Khi có giao dịch mới, API sẽ POST đến webhook URL của bạn:
 
 ```json
 {
-  "timestamp": "2025-01-09T14:30:00Z",
-  "summary": {
-    "total_transactions": 5,
-    "total_credit": 10000000,
-    "total_debit": 2000000,
-    "net_amount": 8000000
-  },
+  "timestamp": "2025-01-09T14:30:00+07:00",
+  "account_no": "10000453128",
   "transactions": [
     {
-      "id": "13712911687",
-      "amount": "2000000",
-      "description": "NGUYEN VAN A chuyen tien",
-      "transactionDate": "20250109",
-      "transactionType": "IN"
+      "id": "21947404159",
+      "category": "transaction_CategoryMoneyIn",
+      "amount": "35000586",
+      "description": "QUANG THI LE HANG CHUYEN KHOAN",
+      "creditDebitIndicator": "CRDT",
+      "transactionDate": "2025-09-03",
+      "currency": "VND",
+      "runningBalance": "35000586"
     }
-  ]
+  ],
+  "summary": {
+    "total_count": 10,
+    "total_debit": 2000000,
+    "total_credit": 5000000,
+    "fetched_from": "20250901",
+    "fetched_to": "20250910"
+  }
 }
 ```
+
+### Webhook Filter Types
+
+Bạn có thể cấu hình webhook để chỉ gửi các loại giao dịch nhất định:
+
+**1. Tất cả giao dịch (Mặc định)**
+```yaml
+WEBHOOK_FILTER_TYPE: "all"
+```
+
+**2. Chỉ giao dịch nhận tiền**
+```yaml
+WEBHOOK_FILTER_TYPE: "money_in"
+```
+Ví dụ: Nhận chuyển khoản, nhận lương, hoàn tiền
+
+**3. Chỉ giao dịch chuyển tiền đi**
+```yaml
+WEBHOOK_FILTER_TYPE: "transfer_out"
+```
+Ví dụ: Chuyển khoản, thanh toán hóa đơn
+
+**4. Cả nhận và chuyển**
+```yaml
+WEBHOOK_FILTER_TYPE: "both"
+```
+Loại bỏ: Rút ATM, phí dịch vụ
+
+**5. Tùy chỉnh categories**
+```yaml
+WEBHOOK_FILTER_TYPE: "custom"
+WEBHOOK_FILTER_CATEGORY: "transaction_CategoryMoneyIn,transaction_CategoryTransfer,transaction_CategoryCashMoney"
+```
+
+**Danh sách Categories:**
+- `transaction_CategoryMoneyIn` - Nhận tiền
+- `transaction_CategoryTransfer` - Chuyển tiền
+- `transaction_CategoryCashMoney` - Rút ATM/QR
+- `transaction_CategoryOther` - Phí dịch vụ
 
 ## ⚙️ Cấu hình nâng cao
 
@@ -202,9 +286,10 @@ LOGGER_LEVEL: "debug"  # Thay vì "info"
 ### Lỗi "Token expired"
 - Device ID đã hết hạn, lấy lại Device ID mới từ trình duyệt
 
-### Lỗi "Login failed"  
-- Kiểm tra username/password
+### Lỗi "Login failed" / 401 Unauthorized
+- Kiểm tra username/password có đúng không
 - Đảm bảo đã xác minh khuôn mặt trên trình duyệt trước đó
+- ⚠️ **CẢNH BÁO QUAN TRỌNG**: Ứng dụng sẽ **TỰ ĐỘNG DỪNG** sau **2 lần login thất bại** để bảo vệ tài khoản của bạn khỏi bị khóa (TPBank khóa tài khoản sau 5 lần đăng nhập sai)
 
 ### Webhook không nhận được data
 - Kiểm tra `WEBHOOK_URL` có đúng không
@@ -276,13 +361,25 @@ Dịch vụ này sử dụng **API không chính thức** của TPBank mà **kh�
 - 💼 **Tham khảo chuyên gia pháp lý** trước khi sử dụng cho mục đích kinh doanh
 - 🚫 **Không sử dụng** cho các giao dịch quan trọng, số tiền lớn
 - 📞 **Liên hệ TPBank** để sử dụng API chính thức nếu có nhu cầu thương mại
+- 🛡️ **Account Protection**: Ứng dụng có cơ chế bảo vệ tài khoản tự động stop sau 2 lần login thất bại
 
 ### Vi phạm tiềm ẩn
 
 Việc sử dụng API không chính thức có thể:
 - Vi phạm **Điều khoản sử dụng** của TPBank
 - Vi phạm **Quy định pháp luật** về bảo mật ngân hàng
-- Dẫn đến **khóa tài khoản** nếu ngân hàng phát hiện
+- Dẫn đến **khóa tài khoản** nếu ngân hàng phát hiện hoặc đăng nhập sai quá 5 lần
+
+### Cơ chế bảo vệ tài khoản
+
+Để tránh tình trạng bị khóa tài khoản do đăng nhập sai nhiều lần, ứng dụng đã tích hợp:
+
+- 🛡️ **Tự động theo dõi** số lần login thất bại
+- ⚠️ **Cảnh báo** khi đạt ngưỡng nguy hiểm
+- 🛑 **Dừng ứng dụng** tự động sau **2 lần thất bại liên tiếp**
+- 📊 **Logs chi tiết** để debug và kiểm tra
+
+**Lưu ý:** TPBank sẽ khóa tài khoản sau **5 lần đăng nhập sai**. Ứng dụng stop ở lần thứ 2 để đảm bảo an toàn.
 
 **➡️ SỬ DỤNG DỊCH VỤ NÀY ĐỒNG NGHĨA BẠN CHẤP NHẬN MỌI RỦI RO**
 

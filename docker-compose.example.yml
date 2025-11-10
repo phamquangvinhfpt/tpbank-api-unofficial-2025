@@ -44,6 +44,11 @@ services:
       WEBHOOK_TIMEOUT: "30s"
       WEBHOOK_RETRY_COUNT: "3"
       WEBHOOK_RETRY_DELAY: "2s"
+      
+      # Webhook Filter Type - LỌC LOẠI GIAO DỊCH GỬI VỀ WEBHOOK
+      WEBHOOK_FILTER_TYPE: "all"                                # all: tất cả | money_in: chỉ nhận tiền | transfer_out: chỉ chuyển đi | both: cả nhận và chuyển | custom: tùy chỉnh
+      # WEBHOOK_FILTER_CATEGORY: "transaction_CategoryMoneyIn,transaction_CategoryTransfer"  # Uncomment để dùng custom filter
+      
       WEBHOOK_HEADER_CONTENT_TYPE: "application/json"
       WEBHOOK_HEADER_X_API_KEY: "your-secret-key"               # API key của webhook server
 
