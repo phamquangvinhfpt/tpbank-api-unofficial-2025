@@ -55,10 +55,10 @@ curl -O https://raw.githubusercontent.com/phamquangvinhfpt/tpbank-api-unofficial
 ```yaml
 environment:
   # Thông tin đăng nhập TPBank
-  TPBANK_USERNAME: "your_phone_number_bank"              # Số điện thoại
-  TPBANK_PASSWORD: "your_password_here"      # Mật khẩu  
-  TPBANK_DEVICE_ID: "your_device_id_here"    # Device ID từ bước 1
-  TPBANK_ACCOUNT_NUMBER: "your_account_number_bank_here"       # Số tài khoản
+  TPBANK_USERNAME: "your_phone_number"       # Số điện thoại
+  TPBANK_PASSWORD: "your_password"           # Mật khẩu  
+  TPBANK_DEVICE_ID: "your_device_id"         # Device ID từ bước 1
+  TPBANK_ACCOUNT_NUMBER: "your_account_number" # Số tài khoản
   
   # Webhook nhận thông báo giao dịch
   WEBHOOK_URL: "https://your-webhook-url.com/transactions"
@@ -78,7 +78,7 @@ docker-compose -f docker-compose.example.yml up -d
 
 ### Health Check
 ```bash
-GET /health
+GET /api/v1/health
 ```
 
 ### Swagger Documentation
@@ -86,7 +86,73 @@ GET /health
 GET /swagger/index.html
 ```
 
-### Lấy giao dịch theo khoảng thời gian
+### Transaction Endpoints
+
+#### 1. Lấy giao dịch có phân trang (Khuyến nghị) ⭐
+
+**API mới - Hiệu suất tốt nhất, có thể filter theo categories**
+
+```bash
+POST /api/v1/transactions/paginated
+Content-Type: application/json
+
+{
+  "from_date": "20250101",
+  "to_date": "20250109",
+  "page": 1,
+  "page_size": 50,
+  "categories": ["transaction_CategoryMoneyIn", "transaction_CategoryTransfer"]  // optional
+}
+```
+
+**Response (không filter):**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "transactions": [...],
+    "pagination": {
+      "page": 1,
+      "page_size": 50,
+      "count": 50,
+      "has_more": true
+    }
+  }
+}
+```
+
+**Response (có filter categories):**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "transactions": [...],
+    "pagination": {
+      "page": 1,
+      "page_size": 50,
+      "count": 30,
+      "has_more": true
+    },
+    "total_before_filter": 50,
+    "filter_type": "custom"
+  }
+}
+```
+
+**Lưu ý:**
+- `page`: Trang hiện tại (bắt đầu từ 1)
+- `page_size`: Số giao dịch mỗi trang (1-400)
+- `has_more`: `true` nếu còn trang tiếp theo
+- `categories`: Tùy chọn - filter theo danh sách categories
+- `total_before_filter`: Số giao dịch trước khi filter (chỉ có khi filter)
+- `filter_type`: Loại filter đang dùng (chỉ có khi filter)
+
+#### 2. Lấy tất cả giao dịch (Không phân trang)
+
+⚠️ **Cảnh báo:** API này lấy tất cả giao dịch, có thể chậm nếu có nhiều giao dịch. Khuyến nghị dùng API phân trang.
+
 ```bash
 POST /api/v1/transactions
 Content-Type: application/json
@@ -97,7 +163,7 @@ Content-Type: application/json
 }
 ```
 
-### Lấy giao dịch N ngày gần nhất
+#### 3. Lấy giao dịch N ngày gần nhất
 ```bash
 POST /api/v1/transactions/last-days
 Content-Type: application/json
@@ -107,7 +173,10 @@ Content-Type: application/json
 }
 ```
 
-### Lấy giao dịch nhận tiền (Money In)
+#### 4. Lấy giao dịch nhận tiền (Money In)
+
+**Filter chỉ lấy giao dịch nhận tiền vào tài khoản**
+
 ```bash
 POST /api/v1/transactions/money-in
 Content-Type: application/json
@@ -118,7 +187,24 @@ Content-Type: application/json
 }
 ```
 
-### Lấy giao dịch chuyển tiền đi (Transfer Out)
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 3,
+    "total_before_filter": 10,
+    "filter_type": "money_in",
+    "transactions": [...]
+  }
+}
+```
+
+#### 5. Lấy giao dịch chuyển tiền đi (Transfer Out)
+
+**Filter chỉ lấy giao dịch chuyển tiền đi (bao gồm cả rút ATM/QR)**
+
 ```bash
 POST /api/v1/transactions/transfer-out
 Content-Type: application/json
@@ -129,7 +215,24 @@ Content-Type: application/json
 }
 ```
 
-### Lấy giao dịch theo category tùy chọn
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 2,
+    "total_before_filter": 10,
+    "filter_type": "transfer_out",
+    "transactions": [...]
+  }
+}
+```
+
+#### 6. Lấy giao dịch theo category tùy chọn
+
+**Filter theo danh sách categories cụ thể**
+
 ```bash
 POST /api/v1/transactions/by-category
 Content-Type: application/json
@@ -144,12 +247,36 @@ Content-Type: application/json
 }
 ```
 
-### Kích hoạt đồng bộ thủ công
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "count": 5,
+    "total_before_filter": 10,
+    "filter_type": "custom",
+    "transactions": [...]
+  }
+}
+```
+
+**Các categories có sẵn:**
+- `transaction_CategoryMoneyIn`: Nhận tiền
+- `transaction_CategoryTransfer`: Chuyển khoản
+- `transaction_CategoryCashOut`: Rút tiền ATM
+- `transaction_CategoryPayBill`: Thanh toán hóa đơn
+- `transaction_CategoryTopUp`: Nạp tiền điện thoại
+- `transaction_CategoryWithdrawal`: Rút tiền (QR/POS)
+
+### Cronjob Endpoints
+
+#### Kích hoạt đồng bộ thủ công
 ```bash
 POST /api/v1/cronjob/trigger
 ```
 
-### Lấy trạng thái cronjob
+#### Lấy trạng thái cronjob
 ```bash
 GET /api/v1/cronjob/status
 ```
@@ -171,7 +298,7 @@ GET /api/v1/cronjob/status
         "balance": "21000000",
         "referenceNumber": "FT24068710833711",
         "channel": "TRANSFER",
-        "accountNo": "10000453128",
+        "accountNo": "your_account_number",
         "toAccount": "",
         "runningBalance": "21000000",
         "transactionStatus": "SUCCESS"
@@ -188,13 +315,13 @@ Khi có giao dịch mới, API sẽ POST đến webhook URL của bạn:
 ```json
 {
   "timestamp": "2025-01-09T14:30:00+07:00",
-  "account_no": "10000453128",
+  "account_no": "your_account_number",
   "transactions": [
     {
       "id": "21947404159",
       "category": "transaction_CategoryMoneyIn",
       "amount": "35000586",
-      "description": "QUANG THI LE HANG CHUYEN KHOAN",
+      "description": "XXXX XXXX XXXX CHUYEN KHOAN",
       "creditDebitIndicator": "CRDT",
       "transactionDate": "2025-09-03",
       "currency": "VND",
