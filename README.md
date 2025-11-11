@@ -16,6 +16,8 @@ API này cung cấp dịch vụ **tự động đồng bộ giao dịch từ TPB
 - ✅ **Tự động đồng bộ** giao dịch theo lịch (cron job)
 - ✅ **Gửi webhook** với filter tùy chọn (nhận tiền, chuyển đi, hoặc cả 2)
 - ✅ **Transaction Filters** - Lọc giao dịch theo loại category
+- ✅ **Redis Transaction Tracking** - Phát hiện giao dịch mới, tránh duplicate
+- ✅ **Telegram Alert System** - Nhận thông báo giao dịch real-time qua Bot
 - ✅ **API REST** để truy vấn giao dịch thủ công
 - ✅ **Swagger UI** cho documentation
 - ✅ **Docker** ready - chạy với 1 lệnh (~15MB)
@@ -45,9 +47,9 @@ localStorage.deviceId
 1. **Download docker-compose file:**
 
 ```bash
-wget https://raw.githubusercontent.com/phamquangvinhfpt/tpbank-api-unofficial/main/docker-compose.example.yml
+wget https://raw.githubusercontent.com/phamquangvinhfpt/tpbank-api-unofficial-2025/main/docker-compose.example.yml
 # Hoặc
-curl -O https://raw.githubusercontent.com/phamquangvinhfpt/tpbank-api-unofficial/main/docker-compose.example.yml
+curl -O https://raw.githubusercontent.com/phamquangvinhfpt/tpbank-api-unofficial-2025/main/docker-compose.example.yml
 ```
 
 2. **Sửa file `docker-compose.example.yml`:**
@@ -377,6 +379,79 @@ WEBHOOK_FILTER_CATEGORY: "transaction_CategoryMoneyIn,transaction_CategoryTransf
 - `transaction_CategoryCashMoney` - Rút ATM/QR
 - `transaction_CategoryOther` - Phí dịch vụ
 
+## 🎉 Tính năng mới
+
+### 📦 Redis Transaction Tracking
+
+**Phát hiện giao dịch mới tự động - Không spam webhook!**
+
+Redis được dùng để lưu trữ ID các giao dịch đã xử lý, giúp:
+- ✅ **Phát hiện giao dịch mới** - Chỉ gửi webhook cho giao dịch chưa xử lý
+- ✅ **Tránh duplicate** - Không gửi lại giao dịch đã xử lý
+- ✅ **Tự động cleanup** - TTL 30 ngày, tự động xóa dữ liệu cũ
+- ✅ **Hiệu suất cao** - Batch operations, xử lý nhanh
+
+**Cấu hình:**
+
+```yaml
+# docker-compose.example.yml
+environment:
+  REDIS_ENABLED: "true"
+  REDIS_URL: "redis:6379"
+  REDIS_PASSWORD: "your_redis_password_here"
+  REDIS_DB: "0"
+```
+
+### 📱 Telegram Alert System
+
+**Nhận thông báo giao dịch mới ngay trên Telegram!**
+
+Hệ thống alert tự động gửi thông báo qua Telegram Bot khi:
+- 💰 **Có giao dịch mới** - Thông báo chi tiết giao dịch
+- ❌ **Cronjob lỗi** - Cảnh báo khi cronjob thất bại
+- 🔴 **Lỗi nghiêm trọng** - Alert khi có lỗi critical
+
+**Lợi ích:**
+- ✅ **Real-time** - Nhận thông báo ngay lập tức
+- ✅ **Không spam** - Chỉ gửi giao dịch mới (thanks to Redis tracking)
+- ✅ **Async sending** - Không block execution
+- ✅ **Không cần webhook** - Nhận alert trực tiếp trên điện thoại
+
+**Setup Telegram Bot (3 bước đơn giản):**
+
+1️⃣ **Tạo Bot với BotFather:**
+```
+- Mở Telegram, tìm @BotFather
+- Gửi: /newbot
+- Đặt tên bot (vd: TPBank Alert Bot)
+- Đặt username (vd: tpbank_alert_bot)
+- Copy Bot Token (dạng: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz)
+```
+
+2️⃣ **Lấy Chat ID:**
+```
+- Tìm bot vừa tạo và gửi tin nhắn: /start
+- Mở trình duyệt: https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
+- Tìm "chat":{"id":123456789} và copy số ID
+```
+
+3️⃣ **Cấu hình:**
+```yaml
+# docker-compose.example.yml
+environment:
+  TELEGRAM_ENABLED: "true"
+  TELEGRAM_BOT_TOKEN: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+  TELEGRAM_CHAT_ID: "123456789"
+```
+
+**Các loại alert:**
+
+| Loại | Icon | Mô tả |
+|------|------|-------|
+| Transaction Alert | 💰 | Giao dịch mới (chỉ new transactions) |
+| Cronjob Error | ❌ | Lỗi khi chạy cronjob |
+| Critical Error | 🔴 | Lỗi nghiêm trọng cần xử lý |
+
 ## ⚙️ Cấu hình nâng cao
 
 ### Thay đổi lịch chạy cronjob
@@ -462,6 +537,8 @@ docker-compose -f docker-compose.example.yml up -d
 - **Zap** - Structured logging
 - **Viper** - Configuration management
 - **Swagger** - API documentation
+- **Redis** - Transaction tracking
+- **Telegram Bot API** - Real-time alerts
 - **Docker** - Containerization
 
 ## 📄 Bản quyền

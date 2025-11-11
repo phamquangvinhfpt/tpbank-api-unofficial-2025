@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     ports:
       - "8089:8089"
+    depends_on:
+      - redis
     environment:
       # Server Configuration
       SERVER_PORT: "8089"
@@ -52,6 +54,17 @@ services:
       WEBHOOK_HEADER_CONTENT_TYPE: "application/json"
       WEBHOOK_HEADER_X_API_KEY: "your-secret-key"               # API key của webhook server
 
+      # Redis Configuration - PHÁT HIỆN GIAO DỊCH MỚI
+      REDIS_ENABLED: "true"
+      REDIS_URL: "redis:6379"
+      REDIS_PASSWORD: "your_redis_password_here"                # Mật khẩu Redis
+      REDIS_DB: "0"
+
+      # Telegram Configuration - NHẬN THÔNG BÁO REAL-TIME
+      TELEGRAM_ENABLED: "true"
+      TELEGRAM_BOT_TOKEN: "123456:ABC-DEF..."                   # Token từ @BotFather
+      TELEGRAM_CHAT_ID: "123456789"                             # Chat ID của bạn
+
       # Timezone
       TZ: "Asia/Ho_Chi_Minh"
 
@@ -80,6 +93,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Redis Service - LƯU TRỮ GIAO DỊCH ĐÃ XỬ LÝ
+  redis:
+    image: redis:7-alpine
+    container_name: tpbank-redis
+    restart: unless-stopped
+    command: redis-server --requirepass your_redis_password_here
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - tpbank-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
 networks:
   tpbank-network:
     driver: bridge
+
+volumes:
+  redis-data:
