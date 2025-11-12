@@ -16,6 +16,10 @@ API này cung cấp dịch vụ **tự động đồng bộ giao dịch từ TPB
 - ✅ **Tự động đồng bộ** giao dịch theo lịch (cron job)
 - ✅ **Gửi webhook** với filter tùy chọn (nhận tiền, chuyển đi, hoặc cả 2)
 - ✅ **Transaction Filters** - Lọc giao dịch theo loại category
+- ✅ **Redis Transaction Tracking** - Phát hiện giao dịch mới, tránh duplicate
+- ✅ **Telegram Alert System** - Nhận thông báo giao dịch mới qua Telegram Bot
+- ✅ **Revenue Statistics API** - Thống kê doanh thu theo tháng/năm với biểu đồ
+- ✅ **Telegram Bot Commands** - Lệnh `/revenue` để xem thống kê trực tiếp
 - ✅ **API REST** để truy vấn giao dịch thủ công
 - ✅ **Swagger UI** cho documentation
 - ✅ **Docker** ready - chạy với 1 lệnh (~15MB)
@@ -64,6 +68,16 @@ environment:
   WEBHOOK_URL: "https://your-webhook-url.com/transactions"
   WEBHOOK_FILTER_TYPE: "all"  # all, money_in, transfer_out, both, custom
   WEBHOOK_HEADER_X_API_KEY: "your-secret-key"
+  
+  # Redis (Optional - Transaction Tracking)
+  REDIS_ENABLED: "true"
+  REDIS_URL: "redis:6379"
+  REDIS_PASSWORD: "your_redis_password"
+  
+  # Telegram (Optional - Alerts & Bot Commands)
+  TELEGRAM_ENABLED: "true"
+  TELEGRAM_BOT_TOKEN: "your_bot_token"
+  TELEGRAM_CHAT_ID: "your_chat_id"
 ```
 
 3. **Khởi chạy:**
@@ -279,6 +293,110 @@ POST /api/v1/cronjob/trigger
 #### Lấy trạng thái cronjob
 ```bash
 GET /api/v1/cronjob/status
+```
+
+### Revenue Statistics (Thống kê doanh thu) 📊
+
+#### API thống kê doanh thu
+
+**Thống kê theo tháng/năm với biểu đồ:**
+
+```bash
+POST /api/v1/statistics/revenue
+Content-Type: application/json
+
+{
+  "from_date": "20240101",
+  "to_date": "20241231",
+  "type": "monthly",
+  "include_chart": true
+}
+```
+
+**Parameters:**
+- `from_date`: Ngày bắt đầu (YYYYMMDD)
+- `to_date`: Ngày kết thúc (YYYYMMDD)
+- `type`: `"monthly"` (theo tháng) hoặc `"yearly"` (theo năm)
+- `include_chart`: `true` để tạo biểu đồ PNG (base64)
+
+**Response:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "type": "monthly",
+    "total_income": 600000000,
+    "total_expense": 240000000,
+    "net_revenue": 360000000,
+    "total_count": 540,
+    "data": [
+      {
+        "period": "2024-01",
+        "total_income": 50000000,
+        "total_expense": 20000000,
+        "net_revenue": 30000000,
+        "count": 45
+      }
+    ],
+    "chart_url": "data:image/png;base64,..."
+  }
+}
+```
+
+#### Telegram Bot Command
+
+**Xem thống kê doanh thu trực tiếp trong Telegram:**
+
+```
+/revenue          # Thống kê theo tháng (6 tháng gần nhất)
+/revenue month    # Thống kê theo tháng
+/revenue year     # Thống kê theo năm (12 tháng gần nhất)
+```
+
+**Định dạng message:**
+- 📊 **Biểu đồ PNG** hiển thị trên (line chart 3 đường với labels rõ ràng)
+- 📝 **Text caption** hiển thị dưới (tổng quan, chi tiết 5 kỳ gần nhất)
+
+**Setup Telegram Bot:**
+
+1. Tạo bot với [@BotFather](https://t.me/botfather)
+2. Lấy Bot Token
+3. Lấy Chat ID (gửi message cho bot rồi gọi `getUpdates`)
+4. Set webhook:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-domain.com/api/v1/telegram/webhook"}'
+```
+
+**Tối ưu hóa:**
+- ✅ **Token reuse**: Không login lại nếu token còn hợp lệ
+- ✅ **Date format**: Hỗ trợ cả YYYY-MM-DD và DD/MM/YYYY
+- ✅ **Chart labels**: Format ngắn gọn (T5/25 cho tháng 5/2025)
+- ✅ **Message layout**: Chart với caption (dễ xem ngay ảnh)
+- ✅ **Cloudflare bypass**: Whitelist Telegram IPs để tránh 403 Forbidden
+
+**Troubleshooting Webhook:**
+
+Nếu bot không phản hồi, kiểm tra:
+
+```bash
+# Kiểm tra webhook status
+curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"
+
+# Nếu thấy lỗi 403 Forbidden từ Cloudflare:
+# 1. Vào Cloudflare Dashboard → Security → WAF → Tools
+# 2. Tạo IP Access Rule:
+#    - IP: 149.154.160.0/20 → Action: Allow
+#    - IP: 91.108.4.0/22 → Action: Allow
+# 3. Hoặc tắt Bot Fight Mode cho path /api/v1/telegram/webhook
+
+# Xóa webhook và set lại để clear pending updates
+curl "https://api.telegram.org/bot<BOT_TOKEN>/deleteWebhook?drop_pending_updates=true"
+curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+  -d '{"url": "https://your-domain.com/api/v1/telegram/webhook"}'
 ```
 
 ## 📊 Response mẫu
