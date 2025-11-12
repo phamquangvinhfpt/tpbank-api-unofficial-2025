@@ -349,10 +349,14 @@ Content-Type: application/json
 **Xem thống kê doanh thu trực tiếp trong Telegram:**
 
 ```
-/revenue          # Thống kê theo tháng (6 tháng gần nhất)
-/revenue month    # Thống kê theo tháng
-/revenue year     # Thống kê theo năm (12 tháng gần nhất)
+/revenue          # Tháng hiện tại (từ ngày 1 đến hôm nay)
+/revenue 3        # 3 tháng gần nhất
+/revenue 6        # 6 tháng gần nhất
+/revenue 12       # 12 tháng gần nhất
+/revenue year     # 12 tháng gần nhất (giống /revenue 12)
 ```
+
+**Giới hạn:** Tối đa 36 tháng (3 năm)
 
 **Định dạng message:**
 - 📊 **Biểu đồ PNG** hiển thị trên (line chart 3 đường với labels rõ ràng)
