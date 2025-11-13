@@ -358,6 +358,10 @@ Content-Type: application/json
 
 **Giới hạn:** Tối đa 36 tháng (3 năm)
 
+**Định dạng biểu đồ:**
+- ⏰ **<= 31 ngày**: Biểu đồ theo NGÀY (labels: 13/11, 14/11...)
+- 📅 **> 31 ngày**: Biểu đồ theo THÁNG (labels: T5/25, T6/25...)
+
 **Định dạng message:**
 - 📊 **Biểu đồ PNG** hiển thị trên (line chart 3 đường với labels rõ ràng)
 - 📝 **Text caption** hiển thị dưới (tổng quan, chi tiết 5 kỳ gần nhất)
